@@ -1,106 +1,183 @@
-import pyaudio
-import wave
-import argparse
-import grpc
-from .yandex.cloud.ai.stt.v3 import stt_pb2 as stt_pb2
-from .yandex.cloud.ai.stt.v3 import stt_service_pb2_grpc as stt_service_pb2_grpc
-# import yandex.cloud.ai.stt.v3. as stt_pb2
-# import . as stt_service_pb2_grpc
-from pyAudioAnalysis import audioSegmentation as aS
-import queue
-from copy import copy
 import threading
+import time
+import grpc
+from .yandex.cloud.ai.stt.v3 import stt_pb2
+from .yandex.cloud.ai.stt.v3 import stt_service_pb2_grpc
+import json
+from openai import OpenAI
 
+OPENAI_API_KEY = "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"
 
-# Настройки потокового распознавания.
-FORMAT = pyaudio.paInt16
-CHANNELS = 1
-RATE = 8000
-CHUNK = 4096
-RECORD_SECONDS = 30
-WAVE_OUTPUT_FILENAME = "../audio.wav"
-frames = []
+client = OpenAI(api_key=OPENAI_API_KEY)
 
-audio = pyaudio.PyAudio()
+prompt = """
+Веди себя как кандидат который проходит интервью на позицию Product Owner. Описание позиции:
+Product owner DMP (Рекламная платформа)
+SberAds - новая команда в экосистеме Сбера, которая разрабатывает современную рекламную платформу для монетизации поверхностей Экосистемы и внешних клиентов. Новая платформа должна объединить в себе технологические решения AdTech и возможности больших данных экосистемы.
+Один из ключевых продуктов SberAds - DMP (Data Management Platform). Эта платформа соединяет в себе знания о поведении пользователей в интернете и знания о пользователях банка, превращая это в тысячи признаков для сотен миллионов клиентов.
+Готовый профиль DMP предоставляет в виде фичи таргетинга в два рекламных продукта - медийная и perfomance реклама.
 
-recognition_queue = queue.Queue()
-labeling_queue = queue.Queue()
+Мы ищем Product Owner, который возглавит эту команду.
 
-waveFile = wave.open(WAVE_OUTPUT_FILENAME, 'wb')
-waveFile.setnchannels(CHANNELS)
-waveFile.setsampwidth(audio.get_sample_size(FORMAT))
-waveFile.setframerate(RATE)
+Обязанности:
+Создание и запуск на рынок SberAds.Аудитории, это позволит рекламодателям самостоятельно создать сегменты и использовать их при открутке рекламы;
+Отмасштабировать платформу DMP с десятка до сотни тысяч регулярно обновляемых сегментов;
+Развитие таргетирования в перфоманс и медийной рекламе;
+Руководство мультифункциональной командой: de, da, ds, go, js;
+Создание и превращение в жизнь стратегии развития профиля пользователя SberAds;
+Общение с внутренними и внешними клиентами.
+Требования
+Опыт лидирования команды разработки от 3х лет;
+Опыт работы над продуктом/технологией основанных на анализе данных;
+Готовность принимать решения и брать на себя ответственность;
+Будет плюсом:
+Опыт работы в DMP/CDP/CRM - like решениях;
+Опыт работы в рекламе;
+Я буду задавать тебе вопросы и хочу, чтобы ты на них отвечал. В ответах будь максимально конкретен, например называй конкретные наименований фреймворков или технологий, которыми ты будешь пользоваться. 
+Ответ выдай в таком виде:
+## Заголовок 1
+- подпункт 1
+- подпункт 2
+...
+## Заголовок 2
+- подпункт 1
+...
+"""
 
-def gen(audio_chunks, isRecoding):
-   recognize_options = stt_pb2.StreamingOptions(
-      recognition_model=stt_pb2.RecognitionModelOptions(
-         audio_format=stt_pb2.AudioFormatOptions(
+recognize_options = stt_pb2.StreamingOptions(
+    recognition_model=stt_pb2.RecognitionModelOptions(
+        audio_format=stt_pb2.AudioFormatOptions(
+            # container_audio=stt_pb2.ContainerAudio(
+            #     container_audio_type=stt_pb2.ContainerAudio.OGG_OPUS
+            # ),
             raw_audio=stt_pb2.RawAudio(
-               audio_encoding=stt_pb2.RawAudio.LINEAR16_PCM,
-               sample_rate_hertz=8000,
-               audio_channel_count=1
-            )
-         ),
-         text_normalization=stt_pb2.TextNormalizationOptions(
-            text_normalization=stt_pb2.TextNormalizationOptions.TEXT_NORMALIZATION_ENABLED,
+                audio_encoding=stt_pb2.RawAudio.LINEAR16_PCM,
+                sample_rate_hertz=8000,
+                audio_channel_count=1
+            ),
+        ),
+        text_normalization=stt_pb2.TextNormalizationOptions(
+            text_normalization=stt_pb2.TextNormalizationOptions.TEXT_NORMALIZATION_DISABLED,
             profanity_filter=True,
             literature_text=False
-         ),
-         language_restriction=stt_pb2.LanguageRestrictionOptions(
+        ),
+        language_restriction=stt_pb2.LanguageRestrictionOptions(
             restriction_type=stt_pb2.LanguageRestrictionOptions.WHITELIST,
             language_code=['ru-RU']
-         ),
-         audio_processing_type=stt_pb2.RecognitionModelOptions.REAL_TIME,
-
-      ),
-   )
-
-
-   yield stt_pb2.StreamingRequest(session_options=recognize_options)
-
-   # stream = audio.open(format=FORMAT, channels=CHANNELS,
-   #             rate=RATE, input=True,
-   #             frames_per_buffer=CHUNK)
-   print("recording")
-
-   while isRecoding:
-      if len(audio_chunks):
-         data = audio_chunks.get()
-         print("Recognizing data: ", data)
-         yield stt_pb2.StreamingRequest(chunk=stt_pb2.AudioChunk(data=data))
-         frames.append(data)
-   print("finished")
-
-   # stream.stop_stream()
-   # stream.close()
-   audio.terminate()
+        ),
+        audio_processing_type=stt_pb2.RecognitionModelOptions.REAL_TIME
+    )
+)
 
 
-   waveFile.close()
+class Copilot:
 
-def run(audio_chunks, isRecoding, secret = "t1.9euelZqJzpiUl5ySx4ycyJWJkYvHje3rnpWals3Hyp3NlJKek5mMnJbNy5Tl8_dFbVJU-e9HXnAX_t3z9wUcUFT570decBf-zef1656VmovPysyVxsyXjJqSz8uPkc6W7_zF656VmovPysyVxsyXjJqSz8uPkc6W.QaoBEHMwHmfjz44jxTbbUXYfV_gBjtroPKQP3JQZaWDee8oaOTW47V63ZdF9QetGb3sbe9brNi_LRvLJYNSoBQ"):
-   cred = grpc.ssl_channel_credentials()
-   channel = grpc.secure_channel('stt.api.cloud.yandex.net:443', cred)
-   stub = stt_service_pb2_grpc.RecognizerStub(channel)
-   it = stub.RecognizeStreaming(gen(audio_chunks, isRecoding), metadata=(
-      ('authorization', f'Bearer {secret}'),
-      ('x-folder-id', 'b1gdp45prmdkt1e1gjso'),
-   ))
+    def __init__(self, iam_token, yandex_folder_id='b1gdp45prmdkt1e1gjso'):
+        self.iam_token = iam_token
+        # Установите соединение с сервером.
+        cred = grpc.ssl_channel_credentials()
+        channel = grpc.secure_channel('stt.api.cloud.yandex.net:443', cred)
+        self.stub = stt_service_pb2_grpc.RecognizerStub(channel)
+        self.yandex_folder_id = yandex_folder_id
+        self.user_id = '4e6a4022-796c-42d2-91fa-b8184778a4ca'
+        self.mic_history = []
+        self.tab_history = []
+        self.history = []
 
-   try:
-      for r in it:
-         event_type, alternatives = r.WhichOneof('Event'), None
-         if event_type == 'partial' and len(r. partial.alternatives) > 0:
-            alternatives = [a.text for a in r.partial.alternatives]
-         if event_type == 'final':
-            alternatives = [a.text for a in r.final.alternatives]
-         if event_type == 'final_refinement':
-            alternatives = [a.text for a in r.final_refinement.normalized_text.alternatives]
-            waveFile.writeframes(b''.join(frames))
-         print(f'type={event_type}, alternatives={alternatives}')
-   except grpc._channel._Rendezvous as err:
-      print(f'Error code {err._state.code}, message: {err._state.details}')
-      raise err
+    def set_userid(self, user_id):
+        self.user_id = user_id
 
-if __name__ == '__main__':
-   run()
+
+    def run(self, gen, mic, socketio, cid_uid_map):
+
+        def chatgpt_worker(messages, user_id, cid_uid_map, socketio, client, mic):
+            completion = client.chat.completions.create(
+                model="gpt-3.5-turbo-1106",
+                messages=messages,
+                stream=True
+            )
+            if mic:
+                print('User hint form ChatGPT: ')
+            else:
+                print('Interviewer hint from ChatGPT: ')
+            ans = ''
+            for chunk in completion:
+                if chunk.choices[0].delta.content:
+                    ans += chunk.choices[0].delta.content
+                socketio.emit('copilot',
+                              {'user_id': user_id, 'response': ans, 'len': len(messages) - 1},
+                              room=cid_uid_map[user_id])
+
+        start = time.time()
+        print(self.iam_token)
+        metadata = [
+            ('authorization', f'Bearer {self.iam_token}'),
+            ('x-folder-id', self.yandex_folder_id)
+        ]
+        it = self.stub.RecognizeStreaming(gen(mic), metadata=metadata)
+        for r in it:
+            event_type, alternatives = r.WhichOneof('Event'), None
+            if event_type == 'partial' and len(r.partial.alternatives) > 0:
+                alternatives = [a.text for a in r.partial.alternatives]
+                destination = "mic_transcript"
+                length = len(self.mic_history)
+                if mic:
+                    print(f'Partial message from the user: {alternatives[0]}')
+                else:
+                    print(f'Partial message from the interviewer: {alternatives[0]}')
+                    destination = "tab_transcript"
+                    length = len(self.tab_history)
+                socketio.emit(destination, {'user_id': self.user_id, 'response': alternatives[0], 'len': length + 1},
+                              room=cid_uid_map[self.user_id])
+            if event_type == 'final':
+                alternatives = [a.text for a in r.final.alternatives]
+                if alternatives[0] == '':
+                    continue
+                destination = "mic_transcript"
+                if mic:
+                    print(f'Final message from the user: {alternatives[0]}')
+                    length = len(self.mic_history)
+                else:
+                    print(f'Final message from the interviewer: {alternatives[0]}')
+                    destination = "tab_transcript"
+
+                    length = len(self.tab_history)
+                socketio.emit(destination, {'user_id': self.user_id, 'response': alternatives[0], 'len': length + 1},
+                              room=cid_uid_map[self.user_id])
+                messages = []
+                if mic:
+                    self.mic_history.append(alternatives[0])
+                    self.history.append(['mic', alternatives[0]])
+                    # messages = [
+                    #     {"role": "system",
+                    #      "content": "Выступать в роли репетитора на собеседовании. Критикуйте мои ответы, которые я вам дам."},
+                    # ]
+                    # for i, msg in enumerate(self.history):
+                    #     if msg[0] == 'mic':
+                    #         messages.append({"role": "user", "content": msg[1]})
+                    #     else:
+                    #         if i == 0:
+                    #             messages.append({"role": "user", "content": 'Здравствуйте.'})
+                    #         messages.append({"role": "assistant", "content": msg[1]})
+                else:
+                    self.tab_history.append(alternatives[0])
+                    self.history.append(['tab', alternatives[0]])
+                    messages = [
+                        {"role": "system",
+                         "content": prompt},
+                    ]
+                    for i, msg in enumerate(self.history):
+                        if msg[0] == 'tab':
+                            messages.append({"role": "user", "content": msg[1]})
+                        else:
+                            if i == 0:
+                                messages.append({"role": "user", "content": 'Здравствуйте.'})
+                            messages.append({"role": "assistant", "content": msg[1]})
+
+                    print(messages)
+                    threading.Thread(target=chatgpt_worker,
+                                     args=(messages, self.user_id, cid_uid_map, socketio, client, mic)).start()
+
+                if time.time() - start > 4 * 60:
+                    print('rebooting...')
+                    self.run(gen, mic, socketio, cid_uid_map)
