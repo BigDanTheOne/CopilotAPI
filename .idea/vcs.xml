@@ -2,9 +2,5 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/whisper-real-time" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/whisper_real_time" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/whisper_streaming" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/whisper_streaming/opus-fast-mosestokenizer" vcs="Git" />
   </component>
 </project>
