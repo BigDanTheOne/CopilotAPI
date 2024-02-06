@@ -203,6 +203,10 @@ async def audio_data_mic(sid, data):
     copilot.send(data={"data": audio_data, "session_id": session_id, "is_mic": True})
 
 
+@app.get("/test")
+def read_root():
+    return {"message": "Hello, FastAPI!"}
+
 if __name__ == "__main__":
     from uvicorn import Config, Server
     main_loop = asyncio.new_event_loop()
