@@ -74,7 +74,7 @@ class ChatGPTWorker(threading.Thread):
             print(f"Worker for client {self.session_id} stopped")
 
 class Copilot:
-    def __init__(self, send_msg, new_worker, loop, host='127.0.0.1', port=6005, OPENAI_API_KEY = "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"):
+    def __init__(self, send_msg, new_worker, loop, host='127.0.0.1', port=6011, OPENAI_API_KEY = "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"):
         self.mic_history = []
         self.tab_history = []
         self.gpt_messages = []
