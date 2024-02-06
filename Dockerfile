@@ -13,11 +13,14 @@ COPY . /app
 # Copy the start script into the container
 COPY start.sh /start.sh
 
-# Make the start script executable
-RUN chmod +x /start.sh
+RUN apt-get update && apt-get install -y openssh-client sshpass
 
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Make the start script executable
+RUN chmod +x /start.sh
+
 
 # Expose the port the app runs on
 EXPOSE 8000

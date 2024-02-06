@@ -3,8 +3,12 @@
 # Function to establish SSH tunnel
 establish_ssh_tunnel() {
     while true; do
-        # Establish the SSH tunnel
-        ssh -N -L 6011:localhost:6011 bohonkomi@lorien.atp-fivt.org -o ServerAliveInterval=60 -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=no -p password="ncJUftkzearUC9YxNKK1"
+        # Use sshpass to provide the password non-interactively
+        sshpass -p 'ncJUftkzearUC9YxNKK1' ssh -N -L 6011:localhost:6011 bohonkomi@lorien.atp-fivt.org \
+            -o ServerAliveInterval=60 \
+            -o ExitOnForwardFailure=yes \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null
 
         # Wait a bit before trying to reconnect
         echo "SSH tunnel disconnected. Reconnecting in 1 second..."
