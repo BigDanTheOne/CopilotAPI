@@ -8,10 +8,6 @@ import socketio
 from queue import Queue as Q
 from fastapi.middleware.cors import CORSMiddleware
 import redis
-import paramiko
-import time
-import threading
-import select
 
 class SSHCredentias:
     ssh_host = 'lorien.atp-fivt.org'
@@ -66,7 +62,7 @@ session_store = SessionStore()
 mgr = socketio.AsyncRedisManager()
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*', client_manager=mgr, logger=True)
 socket_app = socketio.ASGIApp(sio, other_asgi_app=app)
-app.mount("/", socket_app)
+app.mount("/ws", socket_app)
 
 
 def transform_audio(raw_audio):
@@ -204,7 +200,8 @@ async def audio_data_mic(sid, data):
 
 
 @app.get("/test")
-def read_root():
+async def sdsdsdsdssdsdsd():
+    # await asyncio.sleep(1)
     return {"message": "Hello, FastAPI!"}
 
 if __name__ == "__main__":
@@ -212,8 +209,6 @@ if __name__ == "__main__":
     main_loop = asyncio.new_event_loop()
     copilot = Copilot(send_msg, new_worker, main_loop)
     copilot.run()
-
-    config = Config(app=app, loop=main_loop)
+    config = Config(app=app, loop=main_loop, host='0.0.0.0', port=8000)
     server = Server(config)
     main_loop.run_until_complete(server.serve())
-    # uvicorn.run(app, host="127.0.0.1", port=8000)
