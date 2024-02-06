@@ -142,7 +142,7 @@ class Copilot:
                 data = bytearray()  # Используем bytearray для накопления данных
                 while True:
                     chunk = self.s.recv(1024)  # приняли чанк
-                    print("data recvd", data)
+                    # print("data recvd", data)
                     data.extend(chunk)
                     if (len(chunk) < 1024) and (
                             len(chunk) > 0):  # если пакет пуст или неполный, то это последний или некорректный чанк
